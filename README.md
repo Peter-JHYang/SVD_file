@@ -7,7 +7,7 @@
 # 2019/11/11
 將所有檔案重新上傳進一個資料夾中，還無法以windows rstudio進行測試，因為中文課程問題
 ※接下來會修改為可於windows測試，或是取得課程IPcode
-執行檔按順序 : history_student_V2.R -> predict_first_scene.R -> predict_second_scene.R
+※執行檔按順序 : history_student_V2.R -> predict_first_scene.R -> predict_second_scene.R
 1. history_student_V2.R可產生back.csv及get_class_history.csv檔案給予方法一和方法二進行預測
 2. get_class_history.csv為學生修課成績矩陣，裡面包含必修及選修課 
    back.csv為取得學生修課成績矩陣後放入svd function轉換出的矩陣
