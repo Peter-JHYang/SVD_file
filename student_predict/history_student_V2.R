@@ -48,8 +48,9 @@ options("warn"=-1)
 # save.image("/home/lab/下載/tmp/split_data.Rdata")
 ##################################################################
 rm(list = ls())
-#setwd("/home/lab/下載/tmp")
-load("./split_data.Rdata") 
+#setwd("/home/lab/下載/student_predict")
+load("./split_data.Rdata")
+load("./all_function.Rdata")
 
 # check all student dep
 all_user <- as.data.frame(unique(all_data[,1]))
@@ -77,246 +78,29 @@ if(length(not_need) == 0){
     split_data[[not_need[i]]] <- NULL 
   }
 }
-
-# bind with the big_matrix, and big_matrix will final binf in final_bind
-matrix_bind <- function(id, tmp_frame, big_matrix){
-  #id, st_need_year, big_matrix
-  #tmp_frame <- st_need_year
-  for( i in 1:length(tmp_frame) ){
-    score <- tmp_frame[[i]] 
-    name <- tmp_frame[[i]][,2]
-      
-    unexist <- setdiff(name, rownames(big_matrix[[i]]))
-    tmp_matrix <- matrix(NA,nrow = length(unexist), ncol = ncol(big_matrix[[i]]))
-    colnames(tmp_matrix) <- colnames(big_matrix[[i]])
-    rownames(tmp_matrix) <- unexist
-    big_matrix[[i]] <- rbind(big_matrix[[i]],tmp_matrix)
-      
-    new <- matrix(NA,nrow = nrow(big_matrix[[i]]), ncol = 1)
-    colnames(new) <- id
-      
-    if(is.null(tmp_frame[[i]]) || nrow(tmp_frame[[i]])==0){
-      big_matrix[[i]] <- cbind(big_matrix[[i]], new)
-    }else{
-      for( t in 1:nrow(big_matrix[[i]])){
-        for( n in 1:nrow(score) ){
-          if(score[n,2] == rownames(big_matrix[[i]])[t]){
-            #print(t)
-            if(score[n,3]=="抵免"){
-              new[t,1] <- 60
-            }else{
-              new[t,1] <- as.integer(score[n,3])
-            }
-          }
-        }
-      }
-      big_matrix[[i]] <- cbind(big_matrix[[i]], new)
-    }
-  }
-  return (big_matrix)
-}
-
-# check student is we need 
-check_st_need <- function(st_year, check){
-  year <- as.integer(st_year)
-  semester_check <- check
-  
-  compare <- c("")
-  
-  for( j in 1:length(semester_check) ){
-    
-    if(j%%2==1){
-      compare <- append(compare, paste0(as.character(year),"1"))
-    }else{
-      compare <- append(compare, paste0(as.character(year),"2"))
-      year <- year + 1
-    }
-    
-  }
-  compare <- compare[! compare %in% ""]
-  compare <- rev(compare)
-  ans <- ""
-  for( i in length(semester_check):1 ){
-    
-    if(semester_check[i] != compare[i]){
-      ans <- "ng"
-      break
-    }else{
-      ans <- "OK"
-    }
-  }
-  return (ans)
-}
-
-
-# main function
-main_fun <- function(split_data, end, grade, dep){
-  #1->2  end<=107
-  #end <- 105 ; grade <- 2; dep <- 0
-  if(dep == 0){
-    i_need <- as.character(all_user$id)
-    get_dep <- lapply(split_data, function(x){if(unique(x$StudentID) %in% i_need)return(x) else return(NULL) })
-    get_dep[sapply(get_dep, is.null)] <- NULL
-  }else{
-    i_need <- as.character(all_user[all_user$dep == dep,]$id)
-    get_dep <- lapply(split_data, function(x){if(unique(x$StudentID) %in% i_need)return(x) else return(NULL) })
-    get_dep[sapply(get_dep, is.null)] <- NULL
-  }
-  
-  get_bfor <- lapply(get_dep, function(x){ if(substr(unique(x$StudentID),1,3)<=end){return(x)}else return(NULL) })
-  get_bfor[sapply(get_bfor, is.null)] <- NULL
-  
-  all_course <- matrix(NA,nrow = 0,ncol = 1)
-  colnames(all_course) <- "semester_year"
-
-  big_matrix <- list()
-  last <- 2*grade+1
-  for(se in 1:last){
-    big_matrix[[se]] <- all_course
-  }
-  
-  # compare each student
-  for( i in 1:length(get_bfor) ){
-    # i = 338
-    #i = i + 1
-    st_year <- unique(substr(get_bfor[[i]]$StudentID,1,3))
-    check <- unique(get_bfor[[i]]$Semester)
-    ans <- check_st_need(st_year, check)
-
-    if(ans == "OK"){
-
-      year <- as.integer(st_year)
-      need_year <- c()
-      compare <- c()
-
-      if(grade == 1){
-        compare[1:2] <- year
-        compare[3] <- year + 1
-      }else{
-        compare[1:2] <- year
-        year <- year + 1
-        compare[3:4] <- year
-        compare[5] <- year + 1
-      }
-
-      for( j in 1:length(compare) ){
-
-        if(j%%2==1){
-          need_year[j] <- paste0(compare[j],"1")
-        }else{
-          need_year[j] <- paste0(compare[j],"2")
-          year <- year + 1
-        }
-      }
-
-      if(FALSE%in%need_year%in%check){
-      }else{
-        split_each <- split(get_bfor[[i]],f = get_bfor[[i]]$Semester)
-        get_need_year <- lapply(split_each, function(x){if(as.integer(need_year[1])<=unique(x$Semester) && unique(x$Semester)<=as.integer(need_year[length(need_year)])){return (x)}})
-        get_need_year[sapply(get_need_year, is.null)] <- NULL
-        #get_need_year <- lapply(get_need_year, function(x){x[x$must_elect=="選修",]})
-        
-        st_need_year <- list()
-        for( j in 1:length(get_need_year) ){
-          for(s in 1:nrow(get_need_year[[j]])){
-            if(nrow(get_need_year[[j]]) == 0){
-              next
-            }
-            if(grepl("【英】",get_need_year[[j]]$course_name[s])){
-              get_need_year[[j]]$course_name[s] <- gsub("【英】","",get_need_year[[j]]$course_name[s])
-            }
-            if(grepl("【跨】",get_need_year[[j]]$course_name[s])){
-              get_need_year[[j]]$course_name[s] <- gsub("【跨】","",get_need_year[[j]]$course_name[s])
-            }
-            if(grepl("【PBL】",get_need_year[[j]]$course_name[s])){
-              get_need_year[[j]]$course_name[s] <- gsub("【PBL】","",get_need_year[[j]]$course_name[s])
-            } 
-          }
-          get_need_year[[j]] <- get_need_year[[j]][,c(2,3,7)]
-          st_need_year[[j]] <- get_need_year[[j]]
-        }
-        if(!""%in%st_need_year[[length(get_need_year)]]$score){
-          id <- unique(get_bfor[[i]]$StudentID)
-          
-          big_matrix <- matrix_bind(id, st_need_year, big_matrix)
-          
-          for(asint in 1:last){
-            big_matrix[[asint]][,1] <- as.integer(need_year[asint])
-          }
-        }
-      }
-    }else{  # ans == ok end
-      next
-    }
-  } # total student end
-  if(grade == 2){
-    final_bind <- rbind(big_matrix[[1]],big_matrix[[2]],big_matrix[[3]],big_matrix[[4]],big_matrix[[5]])
-  }else{
-    final_bind <- rbind(big_matrix[[1]],big_matrix[[2]],big_matrix[[3]])
-  }
-  
-
-  final_bind[is.na(final_bind)] <- -1
-
-  return (final_bind)
-}
-# main end
-#save.image(file = "下載/tmp/all_function.RData")
 ############################################################################
-#rm(list = ls())
-#load("下載/all_function.RData")
-
 # grade matrix
 get_class_history <- main_fun(split_data, 105, 2, 0)
-#write.csv(get_dep,"下載/get_department.csv")
+# write.csv(get_class_history,"./get_class_history.csv")
+get_class_history <- get_class_history[,c(2:225,1)]
+test <- get_class_history
+tmp <- as.data.frame(test[,ncol(test)])
+colnames(tmp) <- "yesr"
+test <- test[,-c(ncol(test))]
+start <- ncol(test) - 10 + 1
+
+predict_st_10 <- test[,start:ncol(test)]
+predict_st_10 <- cbind(predict_st_10, as.matrix(tmp))
+file_name_10 <- paste0("ten_student_",1)
+path_ten <- paste0("./ten_student/",file_name_10,".csv")
+write.csv(predict_st_10, path_ten)
+test <- test[,-c(start:ncol(test))]
+test <- cbind(test, as.matrix(tmp))
+origin_name <- paste0("neither_ten_student_",1)
+path_origin <- paste0("./neither_ten_origin_class/",origin_name,".csv")
+write.csv(test, path_origin)
 
 
-class_year <- as.data.frame(get_class_history[,1]) # storage year
-colnames(class_year) <- "year"
-get_class_history <- as.data.frame(get_class_history)
-all_data <- split(get_class_history, f = get_class_history$semester_year) # split the singal student
-
-get_class_history <- get_class_history[,-c(1)]  # delete the course year
-get_col <- colnames(get_class_history)
-get_row <- rownames(get_class_history)
-
-# normalize
-get_normalize <- function(get_class_history){
-  normalize <- (apply(get_class_history, 2, function(x)(x-min(x)+0.1)/(max(x)-min(x))))
-  return (normalize)
-}
-normalize_result <- get_normalize(get_class_history)
-#normalize_final <- t(apply(normalize_col, 1, function(x)(x-min(x)+0.1)/(max(x)-min(x))))
-write.csv(normalize_result, "./normalize_result.csv")
-
-get_svd_dataframe <- function(data, threshold){
-  #data <- normalize_result
-  #threshold <- 0.85
-  run_svd <- svd(data)  # SVD function
-  check <- cumsum(run_svd$d)/sum(run_svd$d) < threshold
-  run_svd$d[check]
-  f <- length(run_svd$d[check])
-  return_back <- run_svd$u[,1:f] %*% diag(run_svd$d[1:f]) %*% t(run_svd$v[,1:f])
-  return_back <- as.data.frame(return_back)
-  colnames(return_back) <- get_col
-  
-  return (return_back)
-}
-back <- get_svd_dataframe(normalize_result, 0.85)
-
-back[,"course_name"] <- get_row
-stop <- ncol(back)-1
-back <- back[,c(ncol(back),1:stop)]
-back <- cbind(back, class_year)
-
-get_class_history[,"course_name"] <- get_row
-stop <- ncol(get_class_history)-1
-get_class_history <- get_class_history[,c(ncol(get_class_history),1:stop)]
-get_class_history <- cbind(get_class_history, class_year)
-
-write.csv(back,"./back.csv")
-write.csv(get_class_history,"./get_class_history.csv")
-#####################################################################
 options("warn"=old.opt[[1]])
 
 
